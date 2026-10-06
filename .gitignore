@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .env
+# Personal notes for Claude Code (machine specs, decisions); kept local only
+claude.md
+CLAUDE.md
 uploads/
 outputs/
 # Downloaded Real-ESRGAN binary + models (~45 MB zip), not our code

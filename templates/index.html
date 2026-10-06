@@ -1,0 +1,85 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wallpaper Resizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main>
+    <h1>Wallpaper Resizer</h1>
+    <p class="sub">Fit any image to your screen exactly, with no stretching.</p>
+
+    <section class="card">
+      <h2>1. Your screen</h2>
+      <p>Detected: <strong id="detected">...</strong>
+        <span class="tag">best guess</span></p>
+      <p class="hint">Windows scaling, browser zoom or several monitors can make this wrong. Edit it if so.</p>
+      <div class="row">
+        <label>Width <input id="width" type="number" min="320" max="7680"></label>
+        <label>Height <input id="height" type="number" min="320" max="7680"></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Your image</h2>
+      <div id="drop" class="drop" tabindex="0">
+        <span id="dropText">Drag and drop an image here, or click to choose</span>
+        <input id="file" type="file" accept=".jpg,.jpeg,.png,.webp,.bmp" hidden>
+      </div>
+      <p class="hint">jpg, png, webp, bmp. Max 20 MB and 50 megapixels.</p>
+      <label class="mode">How should it fit?
+        <select id="mode">
+          <option value="fit_blur" selected>Fit whole image, blurred background (recommended)</option>
+          <option value="fit_black">Fit whole image, black bars</option>
+          <option value="stretch">Stretch to screen (may distort)</option>
+          <option value="fill">Fill screen (crops the edges)</option>
+        </select>
+      </label>
+      <div class="enhance">
+        <label class="check"><input id="enhance" type="checkbox" checked>
+          Enhance quality with AI (only used when the image is smaller than your screen)</label>
+        <label>Image type
+          <select id="aiModel">
+            <option value="anime" selected>Anime / illustration / digital art</option>
+            <option value="photo">Real photo</option>
+          </select>
+        </label>
+      </div>
+      <button id="go" disabled>Make wallpaper</button>
+    </section>
+
+    <p id="error" class="error" role="alert" hidden></p>
+    <p id="status" hidden>Processing...</p>
+    <ul id="warnings" class="warn" hidden></ul>
+
+    <section id="result" class="card" hidden>
+      <h2>3. Result <span id="afterSize" class="hint"></span></h2>
+      <img id="after" class="result-img" alt="Your new wallpaper">
+      <p id="method" class="hint"></p>
+      <div class="row">
+        <button id="previewDesktop" type="button">Preview on my desktop</button>
+        <a id="download" class="button secondary">Download PNG</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- Full-screen desktop mock-up: shows the wallpaper at real size with fake
+       icons and a taskbar, so it can be judged without downloading. -->
+  <div id="desk" class="desk" hidden>
+    <img id="deskImg" alt="Wallpaper preview">
+    <div id="deskIcons" class="desk-icons"></div>
+    <div class="taskbar">
+      <span class="tb-start"></span><span class="tb-search">Search</span>
+      <span class="tb-clock" id="deskClock"></span>
+    </div>
+    <div class="desk-bar">
+      <button id="deskToggleUi" type="button">Hide icons</button>
+      <button id="deskZoom" type="button">Zoom in</button>
+      <button id="deskClose" type="button">Close (Esc)</button>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

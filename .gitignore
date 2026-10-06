@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+uploads/
+outputs/
+# Downloaded Real-ESRGAN binary + models (~45 MB zip), not our code
+tools/

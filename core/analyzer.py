@@ -1,6 +1,9 @@
+import os
+
 from PIL import Image
 
-MAX_MEGAPIXELS = 50
+# Lower it (e.g. MAX_MEGAPIXELS=25) on a server with little RAM.
+MAX_MEGAPIXELS = int(os.environ.get("MAX_MEGAPIXELS", 50))
 MIN_SIDE = 320
 MAX_SIDE = 7680
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "bmp"}

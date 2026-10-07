@@ -1,85 +1,280 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Wallpaper Resizer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="description" content="Resize any image to fit your screen exactly: no stretching, optional AI upscaling, instant preview.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f4f4f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121216" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='5' width='28' height='19' rx='3' fill='%23e5322d'/%3E%3Cpath d='M6 20l6-7 4 4 3-3 5 6z' fill='%23fff'/%3E%3Crect x='12' y='26' width='8' height='2' rx='1' fill='%23e5322d'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ asset('style.css') }}">
+  <script src="{{ asset('theme.js') }}"></script>
 </head>
 <body>
-  <main>
-    <h1>Wallpaper Resizer</h1>
-    <p class="sub">Fit any image to your screen exactly, with no stretching.</p>
-
-    <section class="card">
-      <h2>1. Your screen</h2>
-      <p>Detected: <strong id="detected">...</strong>
-        <span class="tag">best guess</span></p>
-      <p class="hint">Windows scaling, browser zoom or several monitors can make this wrong. Edit it if so.</p>
-      <div class="row">
-        <label>Width <input id="width" type="number" min="320" max="7680"></label>
-        <label>Height <input id="height" type="number" min="320" max="7680"></label>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>2. Your image</h2>
-      <div id="drop" class="drop" tabindex="0">
-        <span id="dropText">Drag and drop an image here, or click to choose</span>
-        <input id="file" type="file" accept=".jpg,.jpeg,.png,.webp,.bmp" hidden>
-      </div>
-      <p class="hint">jpg, png, webp, bmp. Max 20 MB and 50 megapixels.</p>
-      <label class="mode">How should it fit?
-        <select id="mode">
-          <option value="fit_blur" selected>Fit whole image, blurred background (recommended)</option>
-          <option value="fit_black">Fit whole image, black bars</option>
-          <option value="stretch">Stretch to screen (may distort)</option>
-          <option value="fill">Fill screen (crops the edges)</option>
-        </select>
-      </label>
-      <div class="enhance">
-        <label class="check"><input id="enhance" type="checkbox" checked>
-          Enhance quality with AI (only used when the image is smaller than your screen)</label>
-        <label>Image type
-          <select id="aiModel">
-            <option value="anime" selected>Anime / illustration / digital art</option>
-            <option value="photo">Real photo</option>
-          </select>
-        </label>
-      </div>
-      <button id="go" disabled>Make wallpaper</button>
-    </section>
-
-    <p id="error" class="error" role="alert" hidden></p>
-    <p id="status" hidden>Processing...</p>
-    <ul id="warnings" class="warn" hidden></ul>
-
-    <section id="result" class="card" hidden>
-      <h2>3. Result <span id="afterSize" class="hint"></span></h2>
-      <img id="after" class="result-img" alt="Your new wallpaper">
-      <p id="method" class="hint"></p>
-      <div class="row">
-        <button id="previewDesktop" type="button">Preview on my desktop</button>
-        <a id="download" class="button secondary">Download PNG</a>
-      </div>
-    </section>
-  </main>
-
-  <!-- Full-screen desktop mock-up: shows the wallpaper at real size with fake
-       icons and a taskbar, so it can be judged without downloading. -->
-  <div id="desk" class="desk" hidden>
-    <img id="deskImg" alt="Wallpaper preview">
-    <div id="deskIcons" class="desk-icons"></div>
-    <div class="taskbar">
-      <span class="tb-start"></span><span class="tb-search">Search</span>
-      <span class="tb-clock" id="deskClock"></span>
+<div class="app">
+  <!-- ===== Sidebar: settings ===== -->
+  <aside id="sidebar" class="sidebar" aria-label="Settings">
+    <div class="side-head">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="5" width="28" height="19" rx="3"/><path d="M6 20l6-7 4 4 3-3 5 6z" fill="#fff"/><rect x="12" y="26" width="8" height="2" rx="1"/></svg>
+        <span class="brand-text">
+          <strong>Wallpaper Resizer</strong>
+          <small>Fit any image to your screen</small>
+        </span>
+      </a>
+      <button id="collapseBtn" class="icon-btn ghost" type="button" aria-label="Hide settings panel" title="Hide settings panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 10l-2 2 2 2"/></svg>
+      </button>
     </div>
-    <div class="desk-bar">
-      <button id="deskToggleUi" type="button">Hide icons</button>
-      <button id="deskZoom" type="button">Zoom in</button>
-      <button id="deskClose" type="button">Close (Esc)</button>
+
+    <div class="side-scroll">
+      <section class="step">
+        <div class="step-head">
+          <h2><span class="num">1</span> Screen size</h2>
+          <button id="resetSize" class="link-btn" type="button" hidden>Use detected</button>
+        </div>
+        <p class="detected">Detected on this device: <strong id="detected">…</strong></p>
+        <div class="size-row">
+          <label class="field">
+            <span class="field-label">Width</span>
+            <span class="input-wrap">
+              <input id="width" type="number" inputmode="numeric" min="320" max="7680" step="1" autocomplete="off">
+              <span class="unit">px</span>
+            </span>
+          </label>
+          <button id="swap" class="icon-btn swap" type="button" aria-label="Swap width and height" title="Swap (portrait / landscape)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg>
+          </button>
+          <label class="field">
+            <span class="field-label">Height</span>
+            <span class="input-wrap">
+              <input id="height" type="number" inputmode="numeric" min="320" max="7680" step="1" autocomplete="off">
+              <span class="unit">px</span>
+            </span>
+          </label>
+        </div>
+        <p id="sizeError" class="field-error" role="alert" hidden></p>
+        <div class="presets" role="group" aria-label="Common resolutions">
+          <button type="button" data-w="1920" data-h="1080"><b>Full HD</b><small>1920×1080</small></button>
+          <button type="button" data-w="2560" data-h="1440"><b>QHD</b><small>2560×1440</small></button>
+          <button type="button" data-w="3840" data-h="2160"><b>4K</b><small>3840×2160</small></button>
+          <button type="button" data-w="3440" data-h="1440"><b>Ultrawide</b><small>3440×1440</small></button>
+          <button type="button" data-w="2560" data-h="1600"><b>16:10</b><small>2560×1600</small></button>
+          <button type="button" data-w="1170" data-h="2532"><b>Phone</b><small>1170×2532</small></button>
+        </div>
+        <details class="hint-details">
+          <summary>Detected size looks wrong?</summary>
+          <p>Display scaling, browser zoom or a second monitor can confuse detection.
+            On Windows, check <em>Settings → System → Display → Display resolution</em>
+            and type that size in.</p>
+        </details>
+      </section>
+
+      <section class="step">
+        <div class="step-head">
+          <h2><span class="num">2</span> Fit mode</h2>
+        </div>
+        <div class="modes" role="radiogroup" aria-label="How the image fits the screen">
+          <label class="mode">
+            <input type="radio" name="mode" value="fit_blur" checked>
+            <span class="mode-card">
+              <svg viewBox="0 0 64 40" aria-hidden="true"><rect class="m-blur" width="64" height="40" rx="3"/><rect class="m-img" x="20" y="2" width="24" height="36" rx="1.5"/></svg>
+              <b>Blurred background</b>
+              <small>Whole image, soft fill</small>
+              <em class="badge">Best</em>
+            </span>
+          </label>
+          <label class="mode">
+            <input type="radio" name="mode" value="fit_black">
+            <span class="mode-card">
+              <svg viewBox="0 0 64 40" aria-hidden="true"><rect class="m-black" width="64" height="40" rx="3"/><rect class="m-img" x="20" y="2" width="24" height="36" rx="1.5"/></svg>
+              <b>Black bars</b>
+              <small>Whole image, black fill</small>
+            </span>
+          </label>
+          <label class="mode">
+            <input type="radio" name="mode" value="fill">
+            <span class="mode-card">
+              <svg viewBox="0 0 64 40" aria-hidden="true"><rect class="m-img" width="64" height="40" rx="3"/><path class="m-cut" d="M2 2h12M2 2v8M62 38H50M62 38v-8"/></svg>
+              <b>Fill</b>
+              <small>Fills screen, crops edges</small>
+            </span>
+          </label>
+          <label class="mode">
+            <input type="radio" name="mode" value="stretch">
+            <span class="mode-card">
+              <svg viewBox="0 0 64 40" aria-hidden="true"><rect class="m-img" width="64" height="40" rx="3"/><path class="m-arrow" d="M8 20h48M8 20l5-4M8 20l5 4M56 20l-5-4M56 20l-5 4"/></svg>
+              <b>Stretch</b>
+              <small>Fills screen, may distort</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="step-head">
+          <h2><span class="num">3</span> Quality</h2>
+        </div>
+        <div class="ai-card">
+          <label class="switch-row">
+            <span class="ai-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.9 2.1 2.1.9-2.1.9L19 21l-.9-2.1-2.1-.9 2.1-.9z"/></svg>
+            </span>
+            <span class="switch-text">
+              <b>AI enhance</b>
+              <small>Sharper upscaling with Real-ESRGAN</small>
+            </span>
+            <span class="switch">
+              <input id="enhance" type="checkbox" role="switch" checked>
+              <span class="track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <div id="aiOptions" class="ai-options">
+            <span class="field-label">Image type</span>
+            <div class="segmented" role="radiogroup" aria-label="Image type for AI model">
+              <label><input type="radio" name="aiModel" value="anime" checked><span>Illustration</span></label>
+              <label><input type="radio" name="aiModel" value="photo"><span>Photo</span></label>
+            </div>
+          </div>
+        </div>
+        <p id="aiNote" class="note" role="status" hidden></p>
+      </section>
     </div>
+
+    <div class="side-foot">
+      <p id="summary" class="summary"></p>
+      <button id="go" class="btn btn-primary btn-block" type="button" disabled>
+        <span id="goLabel">Make wallpaper</span>
+        <kbd class="kbd-hint">Ctrl ↵</kbd>
+      </button>
+      <p id="error" class="alert alert-error" role="alert" hidden></p>
+    </div>
+
+    <div id="resizer" class="resizer" role="separator" tabindex="0" aria-orientation="vertical"
+         aria-label="Resize settings panel" aria-controls="sidebar" title="Drag to resize · double-click to reset"></div>
+  </aside>
+
+  <!-- ===== Main area ===== -->
+  <div class="main">
+    <header class="main-bar">
+      <button id="expandBtn" class="icon-btn" type="button" aria-label="Show settings panel" title="Show settings panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M13 10l2 2-2 2"/></svg>
+      </button>
+      <a class="brand brand-mobile" href="/">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="5" width="28" height="19" rx="3"/><path d="M6 20l6-7 4 4 3-3 5 6z" fill="#fff"/><rect x="12" y="26" width="8" height="2" rx="1"/></svg>
+        <strong>Wallpaper Resizer</strong>
+      </a>
+      <div class="main-bar-right">
+        <span class="pill pill-ok" title="Images are processed in memory and deleted right after. Nothing is saved.">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/></svg>
+          <span>Images never stored</span>
+        </span>
+        <button id="themeBtn" class="icon-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="stage" aria-label="Preview">
+      <!-- Empty state -->
+      <div id="drop" class="drop">
+        <input id="file" type="file" accept=".jpg,.jpeg,.png,.webp,.bmp,image/jpeg,image/png,image/webp,image/bmp" hidden>
+        <h1 class="hero-title">Resize image to wallpaper</h1>
+        <p class="hero-sub">Fit any picture to your screen exactly, with no stretching and no blurry zoom.</p>
+        <button id="pick" class="btn-select" type="button">Select image</button>
+        <p class="drop-sub"><span class="no-touch">or drop image here · paste with <kbd>Ctrl</kbd> + <kbd>V</kbd></span></p>
+        <p id="dropLimits" class="drop-limits">JPG, PNG, WebP, BMP · up to 20 MB · 50 megapixels</p>
+        <div class="drop-overlay" aria-hidden="true">Drop image to upload</div>
+      </div>
+
+      <!-- Loaded state -->
+      <div id="workspace" class="workspace" hidden>
+        <div class="file-bar">
+          <img id="thumb" class="thumb" alt="">
+          <div class="file-meta">
+            <strong id="fileName"></strong>
+            <span id="fileInfo"></span>
+          </div>
+          <button id="replace" class="btn btn-ghost" type="button">Replace</button>
+          <button id="clear" class="icon-btn" type="button" aria-label="Remove image" title="Remove image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        <div class="view-head">
+          <div class="tabs" role="tablist" aria-label="View">
+            <button id="tabPreview" role="tab" aria-selected="true" type="button">Live preview</button>
+            <button id="tabResult" role="tab" aria-selected="false" type="button" disabled>Result</button>
+            <button id="tabCompare" role="tab" aria-selected="false" type="button" disabled>Compare</button>
+          </div>
+          <span id="viewCaption" class="caption"></span>
+        </div>
+
+        <div class="monitor">
+          <div id="screen" class="screen">
+            <canvas id="previewCanvas" class="view" aria-label="Live preview of the wallpaper"></canvas>
+            <img id="resultImg" class="view" alt="Your finished wallpaper" hidden>
+            <div id="compare" class="compare view" hidden>
+              <canvas id="beforeCanvas"></canvas>
+              <div id="afterClip" class="after-clip"><img id="compareAfter" alt=""></div>
+              <div id="divider" class="divider"><span></span></div>
+              <input id="compareRange" class="compare-range" type="range" min="0" max="100" value="50" aria-label="Compare before and after">
+              <span class="cmp-label cmp-l">Plain resize</span>
+              <span class="cmp-label cmp-r">Output</span>
+            </div>
+            <div id="busy" class="busy" hidden>
+              <div class="spinner" aria-hidden="true"></div>
+              <p id="busyText">Processing…</p>
+              <p id="busyTime" class="busy-time"></p>
+            </div>
+          </div>
+          <div class="stand" aria-hidden="true"></div>
+        </div>
+
+        <div class="facts" id="facts"></div>
+        <div id="stale" class="alert alert-info" hidden>
+          Settings changed since this result was made.
+          <button id="staleGo" class="link-btn" type="button">Update wallpaper</button>
+        </div>
+        <ul id="warnings" class="alert alert-warn" hidden></ul>
+
+        <div id="resultActions" class="result-actions" hidden>
+          <a id="download" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>
+            Download PNG
+          </a>
+          <button id="previewDesktop" class="btn btn-secondary" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/></svg>
+            Full screen
+          </button>
+          <button id="copyBtn" class="btn btn-ghost" type="button" hidden>Copy</button>
+          <span id="method" class="method"></span>
+        </div>
+      </div>
+    </main>
   </div>
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- Full-screen desktop mock-up: shows the wallpaper at real size with fake
+     icons and a taskbar, so it can be judged without downloading. -->
+<div id="desk" class="desk" hidden>
+  <img id="deskImg" alt="Wallpaper preview">
+  <div id="deskIcons" class="desk-icons"></div>
+  <div class="taskbar">
+    <span class="tb-start"></span><span class="tb-search">Search</span>
+    <span class="tb-clock" id="deskClock"></span>
+  </div>
+  <div class="desk-bar">
+    <button id="deskToggleUi" type="button">Hide icons</button>
+    <button id="deskZoom" type="button">Zoom to 100%</button>
+    <button id="deskClose" type="button">Close (Esc)</button>
+  </div>
+</div>
+<script src="{{ asset('script.js') }}"></script>
 </body>
 </html>

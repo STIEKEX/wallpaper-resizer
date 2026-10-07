@@ -4,9 +4,10 @@ Turn any image into a wallpaper that fits your screen **exactly**: no
 stretching, no "zoomed in" look, and sharper results for small images thanks
 to optional AI upscaling.
 
-It runs locally in your browser (Flask on `localhost`). Nothing is uploaded to
-the internet, and images are not kept on disk (AI upscaling uses a temporary
-folder that is deleted right after each run).
+Run it locally (Flask on `localhost`, nothing leaves your computer) or deploy
+it as a small web app. Either way, images are processed in memory and never
+kept on disk (AI upscaling uses a temporary folder that is deleted right after
+each run).
 
 ## Features
 
@@ -25,8 +26,13 @@ folder that is deleted right after each run).
   integrated AMD/Intel graphics. No NVIDIA/CUDA needed.
   - *Anime / illustration* model (2x/3x/4x, fast)
   - *Real photo* model (4x, slower)
+- **Live preview** in the browser that updates instantly as you change the
+  size or fit mode, plus a before/after slider when AI was used.
 - **Desktop preview**: see the wallpaper full-screen with a mock taskbar and
   icons before downloading.
+- Responsive UI with a resizable, collapsible settings sidebar, dark mode,
+  drag-and-drop and paste (Ctrl+V). Tested in Chrome, Firefox and WebKit
+  (Safari's engine) from 320 px phones to desktop.
 - Lossless **PNG** output, automatic EXIF rotation fix.
 
 ## Requirements
@@ -78,6 +84,61 @@ python app.py
 Open http://127.0.0.1:5000, check the detected resolution, pick an image and
 a fit mode, then click **Make wallpaper**.
 
+`python app.py` uses Flask's development server and is meant for local use
+only. For a public site, see [Deploy](#deploy).
+
+## Deploy
+
+The production setup is `gunicorn` (configured in `gunicorn.conf.py`) behind
+the HTTPS proxy that your host provides.
+
+**Docker** (Render, Railway, Fly.io, Koyeb, any VPS):
+
+```bash
+docker build -t wallpaper-resizer .
+docker run -p 8000:8000 -e TRUST_PROXY=1 wallpaper-resizer
+```
+
+**Without Docker** (Linux host or a PaaS that reads `Procfile`):
+
+```bash
+pip install -r requirements.txt
+gunicorn app:app        # reads gunicorn.conf.py and $PORT
+```
+
+Health check URL: `/status`.
+
+### Settings (environment variables)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | 8000 (gunicorn), 5000 (`app.py`) | Port to listen on |
+| `TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy, so rate limiting sees the real client IP |
+| `RATE_LIMIT_PER_MIN` | 20 | Image jobs per IP per minute (`0` = off) |
+| `MAX_CONCURRENT_JOBS` | 2 | Images processed at once; extra requests wait up to 10 s, then get "busy" |
+| `MAX_UPLOAD_MB` | 20 | Largest upload |
+| `MAX_MEGAPIXELS` | 50 | Largest source and output image; use about 25 on a 512 MB server |
+| `THREADS` | 8 | gunicorn threads |
+| `REALESRGAN_PATH` | `tools/realesrgan/...exe` | Real-ESRGAN binary |
+
+### What the production setup adds
+
+- Security headers: a strict Content-Security-Policy (no inline scripts or
+  styles), `nosniff`, no framing, `no-referrer`.
+- Per-IP rate limit and a cap on concurrent jobs, so a few users can't
+  exhaust the server's memory.
+- Static files are versioned (`?v=<mtime>`) and cached for a year; the page
+  itself is never cached, so a new deploy shows up immediately.
+- The container runs as a non-root user.
+
+### AI upscaling on a server
+
+Typical cloud hosts have **no GPU and no Vulkan**, and the bundled binary is
+the Windows build. There, AI enhance is reported as unavailable and the app
+uses Lanczos resizing instead (the page says so before you click). To get AI on
+a server you need a Vulkan-capable GPU host and the Linux build of
+`realesrgan-ncnn-vulkan`, pointed to with `REALESRGAN_PATH`.
+
 ## Tests
 
 ```powershell
@@ -99,7 +160,9 @@ not installed.
 Image logic lives in `core/` (no Flask code), the web layer is `app.py`.
 
 ```
-app.py              Flask routes
+app.py              Flask routes, security headers, rate limit
+gunicorn.conf.py    production server settings
+Dockerfile          container image
 core/analyzer.py    validation, limits, quality warnings
 core/cropper.py     center crop to an aspect ratio
 core/fitter.py      fit whole image on blurred/black background
@@ -123,6 +186,8 @@ tests/              pytest
   logos may come out slightly wrong.
 - AI does not change the image's **shape**. A portrait image on a landscape
   screen still needs bars, a blurred background, or cropping.
-- Built for local use. It has no rate limiting or accounts and uses Flask's
-  development server, so it is **not** ready to be exposed to the internet
-  as-is.
+- The rate limit and job limit live in memory, so they hold per process. That
+  is why gunicorn runs one worker with threads. If you scale to several
+  instances, each one counts separately; use your host's limits or a shared
+  store (e.g. Redis) at that point.
+- No accounts or analytics.
